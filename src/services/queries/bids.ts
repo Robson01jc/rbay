@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { getItem } from './items';
 
 export const createBid = async (attrs: CreateBidAttrs) => {
-	return withLock(itemsKey(attrs.itemId), async () => {
+	return withLock(itemsKey(attrs.itemId), async (lockedClient: typeof client) => {
 		const item = await getItem(attrs.itemId)
 
 		if (!item) {
@@ -24,13 +24,13 @@ export const createBid = async (attrs: CreateBidAttrs) => {
 		)
 
 		return Promise.all([
-			client.rPush(bidHistoryKey(attrs.itemId), serialized),
-			client.hSet(itemsKey(item.id), {
+			lockedClient.rPush(bidHistoryKey(attrs.itemId), serialized),
+			lockedClient.hSet(itemsKey(item.id), {
 				bids: item.bids + 1,
 				price: attrs.amount,
 				highestBidUserId: attrs.userId,
 			}),
-			client.zAdd(itemsByPriceKey(), {
+			lockedClient.zAdd(itemsByPriceKey(), {
 				value: item.id,
 				score: attrs.amount,
 			}),
